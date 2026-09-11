@@ -4,7 +4,15 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Shared Downgrain dotenv, same path facility_adder and delta_processor use.
+# A .env in this repo's own root takes priority -- self-contained, works on
+# Render (which has no C:\Downgrain\person to read) and anywhere this repo
+# gets cloned. load_dotenv() doesn't override already-set values, so loading
+# this FIRST means it wins over the shared file below when both define the
+# same key. Falls back to the shared Downgrain dotenv (same path
+# facility_adder and delta_processor use) for any var not in the local one --
+# harmless no-op if that path doesn't exist (e.g. on Render, or someone else's
+# machine).
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 ENV_PATH = Path(r"C:\Downgrain\person\.env")
 load_dotenv(ENV_PATH)
 

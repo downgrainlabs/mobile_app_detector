@@ -2,7 +2,7 @@ services:
   - type: cron
     name: mobile-app-detector-monthly
     runtime: python
-    plan: starter
+    plan: standard
     schedule: "0 9 1 * *"
     buildCommand: pip install .
     startCommand: golfapps run-all

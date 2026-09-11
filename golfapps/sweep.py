@@ -335,7 +335,7 @@ class FacilityNameSweepStats:
         return self.__dict__.copy()
 
 
-def facility_name_sweep(proxies: dict | None = None, workers: int = 40) -> FacilityNameSweepStats:
+def facility_name_sweep(proxies: dict | None = None, workers: int = 20) -> FacilityNameSweepStats:
     """Discovery channel 4 (Derek, 2026-08-22/23): search directly by each
     UNLINKED facility's core (suffix-stripped) name, instead of relying on
     generic topic terms to surface it as padding.
@@ -400,28 +400,41 @@ def facility_name_sweep(proxies: dict | None = None, workers: int = 40) -> Facil
             log.warning("facility_name_sweep: query failed for %r: %s", term, e)
             return None
 
+    # Submitted in bounded batches, not all len(terms) futures at once (up to
+    # 8,600+) -- with a proxy that's flaky under load, worker threads can end
+    # up parked in retry backoff (itunes.ITunesClient._get()'s up-to-4-retry
+    # schedule) while thousands of already-submitted results pile up faster
+    # than the main loop drains them. Found 2026-09-11: a Render cron job on a
+    # 512Mi plan OOM'd right as this step started, right after the base sweep
+    # phase had already churned through 26k+ API results. Chunking keeps the
+    # in-flight backlog bounded to roughly `workers` regardless of how many
+    # terms there are, and lets each batch's memory actually get reclaimed
+    # before the next one starts.
+    done = 0
+    SUBMIT_CHUNK = workers * 10
     with ThreadPoolExecutor(max_workers=workers if proxies else 1) as ex:
-        futures = {ex.submit(do_search, t): t for t in terms}
-        done = 0
-        for fut in as_completed(futures):
-            results = fut.result()
-            done += 1
-            stats.queries_issued += 1
-            if results is None:
-                stats.query_errors += 1
-            else:
-                for x in results:
-                    tid = x.get("trackId")
-                    if not tid or tid in known_ids:
-                        continue
-                    row = itunes.app_row(x)
-                    lab = vendors.label_app(row, reg)
-                    if lab.confidence in ("high", "medium") and tid not in found:
-                        found[tid] = {"row": row, "vendor": lab.vendor,
-                                      "confidence": lab.confidence}
-            if done % 500 == 0:
-                log.info("  facility_name_sweep: %d/%d done, %d new apps found",
-                         done, len(terms), len(found))
+        for i in range(0, len(terms), SUBMIT_CHUNK):
+            chunk = terms[i:i + SUBMIT_CHUNK]
+            futures = {ex.submit(do_search, t): t for t in chunk}
+            for fut in as_completed(futures):
+                results = fut.result()
+                done += 1
+                stats.queries_issued += 1
+                if results is None:
+                    stats.query_errors += 1
+                else:
+                    for x in results:
+                        tid = x.get("trackId")
+                        if not tid or tid in known_ids:
+                            continue
+                        row = itunes.app_row(x)
+                        lab = vendors.label_app(row, reg)
+                        if lab.confidence in ("high", "medium") and tid not in found:
+                            found[tid] = {"row": row, "vendor": lab.vendor,
+                                          "confidence": lab.confidence}
+                if done % 500 == 0:
+                    log.info("  facility_name_sweep: %d/%d done, %d new apps found",
+                             done, len(terms), len(found))
 
     if found:
         app_rows, vendor_rows = [], []

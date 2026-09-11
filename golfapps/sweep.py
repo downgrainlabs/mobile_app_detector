@@ -315,7 +315,10 @@ def expand_artists(client: itunes.ITunesClient, stats: SweepStats,
         todo = [r["artist_id"] for r in rows if r["artist_id"] not in seen]
         if not todo:
             break
-        for aid in todo:
+        log.info("expand_artists: %d accounts to expand this pass (~2s each, "
+                 "unproxied -- expect ~%ds with no further output)",
+                 len(todo), len(todo) * 2)
+        for i, aid in enumerate(todo, 1):
             seen.add(aid)
             apps = client.artist_apps(aid)
             stats.artist_expansions += 1
@@ -323,6 +326,8 @@ def expand_artists(client: itunes.ITunesClient, stats: SweepStats,
             if new_rows:
                 db.upsert("ga_app", new_rows, on_conflict="track_id")
                 stats.apps_found += len(new_rows)
+            if i % 25 == 0:
+                log.info("  expand_artists: %d/%d accounts done", i, len(todo))
 
 
 @dataclass

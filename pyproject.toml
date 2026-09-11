@@ -13,6 +13,11 @@ dependencies = [
 [project.scripts]
 golfapps = "golfapps.cli:main"
 
+[project.optional-dependencies]
+# Local-only review UI (review_app.py) -- never installed on Render, `pip
+# install .` alone (what render.yaml's buildCommand runs) doesn't pull this.
+dev = ["streamlit>=1.38"]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"

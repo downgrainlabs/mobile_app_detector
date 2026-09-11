@@ -1,0 +1,389 @@
+# Vendor fingerprints. Every entry is backed by live evidence in docs/findings.md
+# (Probe H) and docs/raw/vendor_fingerprints.json. Adding a vendor requires no code.
+#
+# FIELD AUTHORITY -- the ranking that resolves disagreements. Higher wins.
+# Derived from two measured facts:
+#   * Teesnap ships on com.gallusgolf.* bundles (Probe H) -> seller_name must
+#     outrank bundle_id, or 27 Teesnap courses get booked as Gallus.
+#   * Los Serranos' seller_url still says quick18.com while copyright/privacy say
+#     Gallus (Probe D) -> seller_url is the most stale-prone field, not a peer of
+#     privacy_policy_url.
+field_authority:
+  seller_name:        100   # who publishes it today; resolves reseller cases
+  artist_name:        100
+  copyright:           90   # updated on migration
+  privacy_policy_url:  80   # tracks the live vendor
+  support_url:         80
+  bundle_id:           70   # durable, but survives migration and resale
+  seller_url:          50   # goes stale; Los Serranos proves it
+  developer_website:   50
+  track_name:          40
+  description:         10   # codebase lineage, never attribution
+
+confidence_tiers:
+  high:    70    # seller/artist name, copyright, privacy/support domain, bundle prefix
+  medium:  50    # seller_url / developer website domain only
+  low:      1    # description or track name only
+
+vendors:
+
+  # ---------------------------------------------------------------- tee-time booking
+  sagacity:
+    display_name: Sagacity Golf
+    category: booking
+    publishing_model: operator_account   # 52 operators; artistId expansion is NOT enough
+    tokens: [sagacity, quick18, "quick 18"]
+    bundle_prefixes: ["com.quick18."]
+    domains: [sagacitygolf.com, quick18.com, "book.quick18.com", sagacity.com, play18.com]
+    copyright_patterns: ["Sagacity Golf", "Quick18", "Quick 18"]
+    known_artist_ids: [433703118]        # holds only 24 apps -- 11 of 29 known courses
+    evidence: "90 apps / 52 operators. sellerUrl=sagacitygolf.com is the cross-account signal."
+
+  gallus:
+    display_name: Gallus Golf
+    category: booking
+    publishing_model: operator_account   # 58 operators
+    tokens: [gallus]
+    bundle_prefixes: ["com.gallusgolf."]
+    domains: [gallusgolf.com, "manager.gallusgolf.com", "support.gallusgolf.com"]
+    copyright_patterns: ["Gallus Golf"]
+    evidence: "323 apps carry com.gallusgolf.*, but 27 of those are sold by Teesnap."
+
+  teesnap:
+    display_name: Teesnap
+    category: booking
+    publishing_model: vendor_account
+    tokens: [teesnap, "tee snap"]
+    seller_names: ["Teesnap, LLC", "Teesnap"]
+    bundle_prefixes: []                  # deliberately empty -- ships on Gallus bundles
+    domains: [teesnap.com]
+    evidence: >
+      27 apps with bundleId com.gallusgolf.* but sellerName 'Teesnap, LLC'. Teesnap
+      resells the Gallus codebase. seller_name outranks bundle_id so these resolve to
+      Teesnap, not Gallus.
+
+  chronogolf:
+    display_name: Chronogolf (Lightspeed)
+    category: booking
+    publishing_model: vendor_account     # 222 apps under one account
+    tokens: [chronogolf, "chrono golf"]
+    bundle_prefixes: ["com.chronogolf."]
+    domains: [chronogolf.com, chronogolf.ca, lightspeedhq.com]
+    known_artist_ids: [1199573035]
+    evidence: "222 apps, single artist account -- artistId expansion is high-yield here."
+
+  foreup:
+    display_name: foreUP
+    category: booking
+    publishing_model: vendor_account
+    tokens: [foreup, "fore up"]
+    bundle_prefixes: ["com.foreup."]
+    domains: [foreupgolf.com, foreup.com]
+    evidence: "Small App Store presence (~3-7). Some client apps ship via Innovatise."
+
+  clubprophet:
+    display_name: Club Prophet
+    category: booking
+    publishing_model: multi_tenant       # no per-club fleet exists
+    tokens: [clubprophet, "club prophet"]
+    bundle_prefixes: ["com.clubprophet."]
+    domains: [clubprophet.com]
+    detectable_per_facility: false
+    evidence: "Only 'Club Prophet Stock' exists. No client fleet -- see Tier 3."
+
+  versant:
+    display_name: Versant Sports (GolfNow / NBC Sports Next)
+    category: booking
+    publishing_model: vendor_account
+    tokens: [versant, "nbcsports next", "nbc sports next", courseapp]
+    bundle_prefixes: ["com.courseapp."]
+    seller_names: ["Versant Sports Mobile Apps", "Versant Media LLC"]
+    copyright_patterns: ["Versant Sports", "NBCSports Next", "NBC Sports Next"]
+    domains: [versant.com, golfnow.com, nbcsportsnext.com]
+    evidence: >
+      87 apps under com.courseapp.*, seller "Versant Sports Mobile Apps", copyright
+      "(c) NBCSports Next Mobile Apps, LLC" -- NBC Sports Next (GolfNow's parent)
+      rebranded to Versant. Found via a Twin Hills CC lookup; was entirely unlabelled
+      because the vendor was missing from this file, not because detection failed.
+
+  # ---------------------------------------------------------------- private club portals
+  clubessential:
+    display_name: Club Essential
+    category: club_portal
+    publishing_model: operator_account   # 90 operators
+    tokens: [clubessential, "club essential"]
+    bundle_prefixes: ["com.clubessential."]
+    domains: [clubessential.com]
+    evidence: "92 apps / 90 operators -- a pure white-label fleet."
+
+  jonas:
+    display_name: Jonas Club Software
+    category: club_portal
+    publishing_model: operator_account
+    tokens: [jonassoftware, "jonas club", jonasclub]
+    bundle_prefixes: ["com.jonassoftware."]
+    domains: [jonasclub.com, jonassoftware.com]
+    seller_names: ["GARY JONAS COMPUTING LTD."]
+    evidence: "75 apps / 66 operators."
+    # NOTE 2026-08-24: seller_name catches all 10 apps published under this seller,
+    # including 2 unrelated non-golf products from the same parent company
+    # ("Jonas Construction Tools" com.jonasconstruction.nativeapp, "Jonas EBI"
+    # com.jonasconstruction.ebi.ios). Accepted deliberately -- those 2 have no
+    # facility to match against, so they fall out as unresolved/review rather than
+    # a wrong link. The seller_name catches 2 real new golf apps that the existing
+    # com.jonassoftware. bundle_prefix misses because they're on a different bundle
+    # scheme (com.Synergy.*, com.JonasSynergy.*): New Cypress Hollow Golf Club and
+    # (New) Lakewood G & CC. The other 6 apps under this seller already match via
+    # com.jonassoftware. and are unaffected.
+    # NOTE 2026-08-18: briefly added "com.guestexpressapp." here on the assumption
+    # it was a second Jonas product line. Checked the actual evidence and reverted --
+    # com.guestexpressapp.* is "Hospitality App Development, LLC", an app-building
+    # AGENCY, not one platform. Its clients' privacy policies point to DIFFERENT
+    # backends: guestdesk.com (an unrelated company) for some, clubhouseonline-e3.com
+    # (genuinely Jonas) for exactly one sampled client (Walloon Lake CC) -- which
+    # resolves correctly on its own via clubhouseonline's domain list, without
+    # needing any guestexpressapp bundle rule at all. Most of the other clients
+    # (Ocean Reef, Rocky Crest, Sandestin, the Myrtle Beach visitor guide) are
+    # generic hotel/resort guest-services apps with no club-management backend
+    # evidence whatsoever. See docs/findings.md-style note: do not add
+    # com.guestexpressapp.* as a vendor bundle prefix for anyone without per-client
+    # verification -- it is an agency's bundle namespace, not a product identity.
+
+  divots:
+    display_name: Divots
+    category: booking
+    publishing_model: vendor_account
+    tokens: [divots]
+    bundle_prefixes: ["com.divots.", "com.divotsapp."]
+    seller_names: ["Jason Snow"]
+    evidence: >
+      16 apps under com.divots.*/com.divotsapp.*, all published by an individual
+      developer account ("Jason Snow") rather than a company name. Found
+      2026-08-18 via a frequency table of unlabelled apps' developers.
+
+  clubhouseonline:
+    display_name: ClubHouse Online
+    category: club_portal
+    parent: jonas                        # same codebase, same bundle prefix
+    publishing_model: operator_account
+    tokens: [clubhouseonline, "clubhouse online"]
+    bundle_prefixes: []                  # shares com.jonassoftware.* with Jonas
+    domains: ["clubhouseonline-e3.com", "clubhouseonline-e3.net",
+              "clubhouseonline-e3.club"]   # .club leaked a vendor host into a match
+    evidence: >
+      All 6 apps use com.jonassoftware.*. Separable from Jonas only by seller_url
+      domain. Reported as its own vendor with parent=jonas.
+
+  clubspot:
+    display_name: Clubspot
+    category: club_portal
+    publishing_model: vendor_account
+    tokens: [clubspot, theclubspot]
+    seller_names: ["Club Spot LLC", "Club Spot"]
+    copyright_patterns: ["Club Spot", "Clubspot"]
+    domains: [theclubspot.com, clubspot.com]
+    # Bundle IDs are RANDOMISED (com.Qk6w4hhlQu, com.sptGKraAR5) -- there is no prefix
+    # to match on, unlike every other vendor here. Only com.theclubspot.* appears, and
+    # only on their sample app. Attribution rests on seller_name / copyright / privacy
+    # domain, which is exactly why those outrank bundle_id in field_authority.
+    bundle_prefixes: ["com.theclubspot."]
+    evidence: >
+      50 apps in corpus, seller "Club Spot LLC", copyright "(c) Club Spot LLC",
+      privacy theclubspot.com/privacy. Serves yacht/swim/racquet clubs as well as
+      golf, so the Golf Course facility scope does the filtering.
+
+  membersfirst:
+    display_name: Members First
+    category: club_portal
+    publishing_model: operator_account
+    tokens: [membersfirst, "members first"]
+    bundle_prefixes: ["com.membersfirst."]
+    domains: [membersfirst.com]
+    # The token matches credit unions. Constrain hard.
+    exclude_bundle_prefixes: ["com.membersfirstcreditunion"]
+    exclude_domains: [mfcu.net, membersfirstga.com, membersfirstfl.org,
+                      membersfirstfl.com]
+    exclude_tokens: ["credit union"]
+    evidence: "48 club apps via com.membersfirst.*; the bare token also hits banks."
+
+  northstar:
+    display_name: Northstar Technologies
+    category: club_portal
+    publishing_model: operator_account
+    tokens: [sibisoft, "northstar club", globalnorthstar]
+    bundle_prefixes: ["com.sibisoft.", "com.northstar."]
+    domains: [globalnorthstar.com, sibisoft.com]
+    seller_names: ["Northstar Technologies"]
+    known_artist_ids: [1078270715, 1450164289]
+    exclude_tokens: ["northstar casino", "northstar bank"]
+    evidence: >
+      Publishes as Sibisoft -- bundle prefix is com.sibisoft.*, not com.northstar.*.
+      Searching 'sibisoft' returns nothing; 'northstar club management' finds the fleet.
+
+  cobalt:
+    display_name: Cobalt Software
+    category: club_portal
+    publishing_model: vendor_account
+    tokens: [mycobaltsoftware, "cobalt software"]
+    bundle_prefixes: ["com.mycobaltsoftware.", "com.cobaltsoftware."]
+    domains: [mycobaltsoftware.com, cobaltsoftware.com]
+    exclude_bundle_prefixes: ["com.trainerize."]   # 'Cobalt+' is a fitness app
+    evidence: "17 apps under com.mycobaltsoftware.*."
+
+  buzclub:
+    display_name: Buz Club Software
+    category: club_portal
+    publishing_model: multi_tenant
+    tokens: ["buz club", buzsoftware, buzclub]
+    seller_names: ["Buz Software Inc"]
+    bundle_prefixes: []                  # only app uses generic com.ios.*
+    domains: [buzsoftware.com]
+    exclude_tokens: [qobuz]
+    detectable_per_facility: false
+    evidence: "1 app (Green Acres Golf Club), bundleId com.ios.* carries no signal."
+
+  # ------------------------------------------------- added 2026-08-18 from discovery
+  clubcaddie:
+    display_name: Club Caddie
+    category: booking
+    publishing_model: vendor_account
+    tokens: [clubcaddie, "club caddie"]
+    bundle_prefixes: ["com.clubcaddie."]      # matched lowercased; ships as com.ClubCaddie.*
+    seller_names: ["Club Caddie Holdings Inc", "Club Caddie"]
+    copyright_patterns: ["Club Caddie"]
+    domains: [clubcaddie.com]
+    evidence: >
+      226 apps, all under "Club Caddie Holdings Inc". Consistent bundle prefix AND
+      copyright. 7 apps point at jonassynergy.com, which may indicate a Jonas
+      relationship worth checking.
+
+  pacesetter:
+    display_name: Pacesetter Technology
+    category: club_portal
+    publishing_model: operator_account
+    tokens: [pacesetter, pacesettertechnology]
+    bundle_prefixes: ["com.pacesettertechnology."]
+    copyright_patterns: ["Pacesetter Technology"]
+    domains: [pacesettertechnology.com]
+    evidence: >
+      216 apps. Operator-published (Ponte Vedra, Discovery Land, Tavistock), so the
+      copyright and pacesettertechnology.com carry it. A handful carry
+      com.jonassoftware / com.clubessential bundles with Pacesetter copyright --
+      migrations, which the field authority resolves toward copyright.
+
+  innovatise:
+    display_name: Innovatise
+    category: booking
+    publishing_model: operator_account
+    tokens: [innovatise]
+    bundle_prefixes: ["com.innovatise."]
+    copyright_patterns: ["Innovatise"]
+    domains: [innovatise.com]
+    evidence: >
+      48 apps, (c)2023 Innovatise GmbH, published under the clubs' and municipalities'
+      own accounts. CAVEAT: Innovatise is a white-label PLATFORM, not a booking vendor
+      -- foreUP ships some client apps through it. So a com.innovatise bundle names the
+      app builder, not necessarily who the course buys from. Treated like the
+      Teesnap/Gallus case: seller_name and copyright outrank the bundle prefix.
+
+  uschedule:
+    display_name: USchedule
+    category: booking
+    publishing_model: vendor_account
+    tokens: [uschedule]
+    bundle_prefixes: ["com.uschedule."]
+    seller_names: ["USchedule, LLC", "USchedule"]
+    domains: [uschedule.com, "clients.uschedule.com"]
+    evidence: >
+      63 apps, all published by USchedule, LLC. Copyright is the CLUB's name, not the
+      vendor's, so attribution rests on seller_name / bundle / domain.
+
+  bestapproach:
+    display_name: Best Approach
+    category: booking
+    publishing_model: vendor_account
+    tokens: [bestapproach, "best approach"]
+    bundle_prefixes: ["com.bestapproach."]
+    seller_names: ["Best Approach"]
+    copyright_patterns: ["Best Approach"]
+    domains: [bestapproach.com]
+    evidence: "23 apps under com.bestapproach.*, (c) 2016/2017 Best Approach."
+
+  yellasoft:
+    display_name: Yella Soft (Flexscape)
+    category: club_portal
+    publishing_model: vendor_account
+    tokens: [flexscape, "yella soft", yellasoft]
+    bundle_prefixes: ["com.flexscape."]
+    seller_names: ["Yella Soft, Inc.", "Yella Soft"]
+    domains: [flexscape.com, yellasoft.com]
+    evidence: >
+      Yella Soft and Flexscape are ONE vendor, not two: all 12 com.flexscape.* apps are
+      published by Yella Soft, Inc. Copyright is the club's name, so seller_name and
+      bundle carry it.
+
+  slate:
+    display_name: Slate Golf
+    category: club_portal
+    publishing_model: operator_account
+    # 'slate' is far too common a word to use as a bare token -- bundle prefix and the
+    # slategolfapps.com domain only.
+    tokens: [slategolfapps]
+    bundle_prefixes: ["com.slate."]
+    domains: [slategolfapps.com]
+    evidence: >
+      11 apps, published under club accounts (Jasper Hills, Idaho Falls CC). Copyright
+      is the club's name; slategolfapps.com is the reliable signal.
+
+  tenfore:
+    display_name: TenFore Golf
+    category: booking
+    publishing_model: vendor_account
+    tokens: [tenfore]
+    bundle_prefixes: ["golf.tenfore"]
+    seller_names: ["TenFore Technology LLC", "Tenfore Golf Management"]
+    copyright_patterns: ["Tenfore", "TenFore"]
+    domains: ["tenfore.golf"]
+    evidence: "16 apps under golf.tenfore.*, seller TenFore Technology LLC."
+
+  teeon:
+    display_name: Tee-On Golf Systems
+    category: booking
+    publishing_model: vendor_account
+    tokens: [teeon, "tee-on", "tee on"]
+    bundle_prefixes: ["com.teeon."]
+    seller_names: ["Tee-On Golf systems Inc."]
+    copyright_patterns: ["Tee On Golf Systems", "Tee-On Golf"]
+    domains: [teeon.com, "tee-on.com"]
+    evidence: "3 apps. Canadian -- expect few US facility links."
+
+  offcourse:
+    display_name: Offcourse Golf
+    category: booking
+    publishing_model: vendor_account
+    tokens: [offcourse, "off course golf"]
+    bundle_prefixes: ["co.offcourse", "com.bluepants"]
+    seller_names: ["Offcourse Golf Inc."]
+    copyright_patterns: ["Offcourse Golf"]
+    domains: ["offcourse.co"]
+    evidence: "6 apps, seller Offcourse Golf Inc."
+
+  proshop_tee_times:
+    display_name: ProShop Tee Times
+    category: booking
+    publishing_model: operator_account   # each club gets its own bundle id
+    tokens: [proshop tee times, pstt]
+    bundle_prefixes: ["com.proshopteetimes."]
+    seller_names: ["Louisville Computer Guys, Inc"]
+    domains: ["pstt.golf", "apps.pstt.golf"]
+    evidence: "8 apps, all com.proshopteetimes.* bundles, seller Louisville Computer Guys, Inc. Found 2026-08-19 via privacy_policy_url apps.pstt.golf in Phase 2 residue rows previously carrying no vendor signature (South Park CC, Elk Run GC)."
+
+  shank_tech:
+    display_name: CourseRev (Shank Tech, Inc)
+    category: booking
+    publishing_model: operator_account   # bundle id is per-club, not vendor-prefixed
+    tokens: [courserev, shank tech]
+    bundle_prefixes: []
+    seller_names: ["SHANK TECH, INC"]
+    domains: ["courserev.ai"]
+    evidence: "1 app so far (Waterford Golf Club, com.waterford) -- seller/artist SHANK TECH, INC, privacy_policy_url courserev.ai. Derek flagged 2026-08-19."

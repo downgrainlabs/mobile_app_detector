@@ -1,0 +1,22 @@
+services:
+  - type: cron
+    name: mobile-app-detector-monthly
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    schedule: "0 9 1 * *"
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: EVOMI_HOST
+        sync: false
+      - key: EVOMI_PORT
+        sync: false
+      - key: EVOMI_USERNAME
+        sync: false
+      - key: EVOMI_PASSWORD
+        sync: false
+      - key: GOOGLE_VISION_API_KEY
+        sync: false

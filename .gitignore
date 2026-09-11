@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# Review/export artifacts and ad hoc run logs -- generated, not source.
+*.csv
+*.txt
+*.log
+# Everything under docs/ is a generated review/research artifact (CSV/JSON
+# exports, ad hoc query dumps), not source -- excluded wholesale. This also
+# takes docs/findings.md out of the repo; it's referenced from a few code
+# comments but nothing reads it at runtime, so it's not needed for deploy.
+docs/
+
+.env

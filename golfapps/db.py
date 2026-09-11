@@ -208,17 +208,36 @@ def known_track_ids() -> set[int]:
 
 
 def tracked_track_ids() -> set[int]:
-    """Apps worth a monthly liveness/metadata refresh: crosswalk-linked (what
-    the delisted-apps report tracks -- Derek, 2026-09-11) plus vendor-
-    confirmed (what the matching waterfall and review queue draw from).
-    Deliberately excludes the much larger pool of generic-sweep padding that
-    never got a vendor label and never feeds anything -- refreshing those
-    every run wastes API calls checking apps nobody is tracking (measured:
-    16,356 in the full corpus vs. ~5,000 actually relevant)."""
+    """Apps worth a monthly liveness/metadata refresh: crosswalk-linked to an
+    actual facility/owner (what the delisted-apps report tracks -- Derek,
+    2026-09-11) plus vendor-confirmed (what the matching waterfall and review
+    queue draw from).
+
+    Deliberately excludes two things:
+      * the much larger pool of generic-sweep padding that never got a vendor
+        label and never feeds anything -- refreshing those every run wastes
+        API calls checking apps nobody is tracking (measured: 16,356 in the
+        full corpus vs. ~5,000 actually relevant);
+      * crosswalk rows with link_type='exclude' (not_a_golf_course, non-US)
+        -- Derek, 2026-09-11: "we only care about good links... if something
+        that is not good was delisted, we don't care." An excluded app isn't
+        believed to be anyone's golf-course app; its liveness is noise. Many
+        excluded apps ARE vendor-confirmed (e.g. a vendor's own non-golf
+        product, like Jonas Construction Tools), so this has to be an
+        explicit exclusion on top of the vendor-confirmed union, not just a
+        filter on which crosswalk rows qualify for inclusion -- otherwise
+        they leak back in through the vendor-confirmed half (measured:
+        1,490 of them did, all 1,490 of the current exclude rows).
+    """
     return {r["track_id"] for r in query("""
-        SELECT track_id FROM app_crosswalk
-        UNION
-        SELECT track_id FROM ga_app_vendor WHERE vendor IS NOT NULL
+        SELECT track_id FROM (
+            SELECT track_id FROM app_crosswalk WHERE link_type IN ('facility', 'owner')
+            UNION
+            SELECT track_id FROM ga_app_vendor WHERE vendor IS NOT NULL
+        ) t
+        WHERE t.track_id NOT IN (
+            SELECT track_id FROM app_crosswalk WHERE link_type = 'exclude'
+        )
     """)}
 
 

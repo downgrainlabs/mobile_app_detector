@@ -5,7 +5,7 @@ services:
     plan: starter
     schedule: "0 9 1 * *"
     buildCommand: pip install .
-    startCommand: golfapps monthly
+    startCommand: golfapps run-all
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9

@@ -98,10 +98,12 @@ def main(argv: list[str] | None = None) -> int:
     sd.add_argument("--since", required=True, help="run_id, e.g. run_202608")
     sd.add_argument("--until")
 
-    sm = sub.add_parser("monthly", help="orchestrate the recurring run: both "
+    sm = sub.add_parser("run-all", help="orchestrate the full recurring run: both "
                                         "sweeps, the canonical waterfall "
                                         "(rebuild.run()), snapshot, ga_run "
-                                        "bookkeeping -- the Render entrypoint")
+                                        "bookkeeping -- the Render entrypoint. "
+                                        "Named for WHAT it does, not WHEN -- "
+                                        "cadence is Render's cron schedule, not this.")
     sm.add_argument("--run-id")
     sm.add_argument("--skip-sweep", action="store_true",
                     help="skip the generic/geo/vendor-term sweep -- "
@@ -223,7 +225,7 @@ def main(argv: list[str] | None = None) -> int:
     elif a.cmd == "diff":
         print(json.dumps(report.diff(a.since, a.until), indent=2, default=str))
 
-    elif a.cmd == "monthly":
+    elif a.cmd == "run-all":
         from datetime import date, datetime, timezone
         run_id = a.run_id or f"run_{date.today():%Y%m}"
         db.upsert("ga_run", [{"run_id": run_id, "phase": "start"}], on_conflict="run_id")

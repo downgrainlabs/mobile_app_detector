@@ -151,11 +151,19 @@ def run(escalate: bool = True, max_html: int | None = None,
 
 
 def refresh_known_apps() -> dict:
-    """Monthly step 1: batch-lookup every known track_id.
+    """Monthly step 1: batch-lookup every TRACKED track_id (db.tracked_track_ids()
+    -- crosswalk-linked + vendor-confirmed, not the whole ga_app corpus).
 
-    Catches delisting, version bumps and metadata edits in ~70 calls at 200 ids each
-    (the plan budgeted ~350 at 100). The batch size is asserted inside the client
-    because Apple truncates silently above 200.
+    Scoped down 2026-09-11 (Derek): the full corpus includes ~11,000 apps that
+    are generic-sweep padding -- never vendor-confirmed, never linked, never
+    reported on -- so checking their liveness every month was pure waste and
+    made the delisted count meaningless (84 delisted out of 16,356 checked,
+    when only ~5,000 were ever apps anyone tracks). Scoping to crosswalk +
+    vendor-confirmed means the delisted count this produces IS the number that
+    matters: apps currently believed good, or in the matching/review pipeline.
+
+    Catches delisting, version bumps and metadata edits. The batch size is
+    asserted inside the client because Apple truncates silently above 200.
 
     An id absent on the first pass gets ONE retry, config.DELIST_RETRY_DELAY_S
     later, before being finalized as delisted (Derek, 2026-09-11: on a monthly
@@ -168,7 +176,7 @@ def refresh_known_apps() -> dict:
     """
     from . import itunes
 
-    ids = sorted(db.known_track_ids())
+    ids = sorted(db.tracked_track_ids())
     if not ids:
         return {"checked": 0}
     client = itunes.ITunesClient()

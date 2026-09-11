@@ -207,6 +207,21 @@ def known_track_ids() -> set[int]:
     return {r["track_id"] for r in query("SELECT track_id FROM ga_app")}
 
 
+def tracked_track_ids() -> set[int]:
+    """Apps worth a monthly liveness/metadata refresh: crosswalk-linked (what
+    the delisted-apps report tracks -- Derek, 2026-09-11) plus vendor-
+    confirmed (what the matching waterfall and review queue draw from).
+    Deliberately excludes the much larger pool of generic-sweep padding that
+    never got a vendor label and never feeds anything -- refreshing those
+    every run wastes API calls checking apps nobody is tracking (measured:
+    16,356 in the full corpus vs. ~5,000 actually relevant)."""
+    return {r["track_id"] for r in query("""
+        SELECT track_id FROM app_crosswalk
+        UNION
+        SELECT track_id FROM ga_app_vendor WHERE vendor IS NOT NULL
+    """)}
+
+
 def apps_missing_html() -> list[dict]:
     return query("""
         SELECT a.track_id, a.bundle_id, a.seller_url, a.seller_name, a.artist_name

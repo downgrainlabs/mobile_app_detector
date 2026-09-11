@@ -10,6 +10,11 @@ dist/
 *.csv
 *.txt
 *.log
+
+# Canada_reference.csv is NOT a generated artifact -- domainmatch.load_canada_hosts()
+# reads it at runtime (repo root, sibling to golfapps/) for the non-US sanity filter.
+# Missing on Render 2026-09-11 because the blanket *.csv rule above caught it too.
+!/Canada_reference.csv
 # Everything under docs/ is a generated review/research artifact (CSV/JSON
 # exports, ad hoc query dumps), not source -- excluded wholesale. This also
 # takes docs/findings.md out of the repo; it's referenced from a few code

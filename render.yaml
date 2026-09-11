@@ -1,11 +1,14 @@
 services:
   - type: cron
     name: mobile-app-detector-monthly
-    runtime: docker
-    dockerfilePath: ./Dockerfile
+    runtime: python
     plan: starter
     schedule: "0 9 1 * *"
+    buildCommand: pip install .
+    startCommand: golfapps monthly
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY

@@ -91,11 +91,14 @@ def main(argv: list[str] | None = None) -> int:
     sr = sub.add_parser("report", help="penetration + market share + blind spots")
     sr.add_argument("--json", action="store_true")
 
-    ss = sub.add_parser("snapshot", help="freeze current state for diffing")
+    ss = sub.add_parser("snapshot", help="refine the latest checkpoint for diffing "
+                                         "(ad hoc sync -- omit --run-id to update "
+                                         "the most recent one in place)")
     ss.add_argument("--run-id")
 
-    sd = sub.add_parser("diff", help="month-over-month change")
-    sd.add_argument("--since", required=True, help="run_id, e.g. run_202608")
+    sd = sub.add_parser("diff", help="change between two checkpoints (any two "
+                                     "run_ids -- not necessarily a month apart)")
+    sd.add_argument("--since", required=True, help="run_id, e.g. run_20260901_090000")
     sd.add_argument("--until")
 
     sm = sub.add_parser("run-all", help="orchestrate the full recurring run: both "
@@ -220,14 +223,26 @@ def main(argv: list[str] | None = None) -> int:
               else report.render_text(rep))
 
     elif a.cmd == "snapshot":
-        print(json.dumps(report.write_snapshot(a.run_id), indent=2))
+        # Refines the latest existing checkpoint by default (same as a
+        # review-queue Sync would) rather than manufacturing a new one --
+        # this is the ad hoc "sync now" path, not a scheduled execution.
+        run_id = a.run_id or report.latest_run_id() or report.new_run_id()
+        print(json.dumps(report.write_snapshot(run_id), indent=2))
 
     elif a.cmd == "diff":
         print(json.dumps(report.diff(a.since, a.until), indent=2, default=str))
 
     elif a.cmd == "run-all":
-        from datetime import date, datetime, timezone
-        run_id = a.run_id or f"run_{date.today():%Y%m}"
+        from datetime import datetime, timezone
+        # Always a FRESH run_id, never the latest existing one -- a full
+        # scheduled execution is its own new sample point in time, not a
+        # refinement of the last one (that's what Sync/`snapshot` are for).
+        # This same id is shared by ga_run's bookkeeping, review-queue
+        # tagging, and the snapshot rows, so one execution -> one row
+        # everywhere, regardless of how often Render is scheduled to run
+        # this (weekly, monthly, whatever) -- no code change needed either
+        # way (Derek, 2026-09-12).
+        run_id = a.run_id or report.new_run_id()
         db.upsert("ga_run", [{"run_id": run_id, "phase": "start"}], on_conflict="run_id")
         try:
             if not a.skip_sweep:

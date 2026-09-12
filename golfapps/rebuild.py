@@ -39,10 +39,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date
 
-from . import (config, db, domainmatch, enrich, join, lens, review_queue,
-               screenshot_ocr, subtitle_resolve, sweep)
+from . import (config, db, domainmatch, enrich, join, lens, report,
+               review_queue, screenshot_ocr, subtitle_resolve, sweep)
 
 log = logging.getLogger(__name__)
 
@@ -149,14 +148,20 @@ def run(apply_links: bool = False, run_discovery: bool = False,
     endpoints that are normally wide open (measured 2026-08-23).
 
     run_id: tags whatever's left in the review queue after the waterfall
-    (review_queue.sync(), step 11 below) so a monthly caller can tell "new
-    this run" apart from backlog. Defaults to the same run_YYYYMM shape
-    report.write_snapshot() uses, so a bare `rebuild.run()` call (the
-    `pipeline` CLI command, ad hoc local runs) still tags something sane
-    without the caller having to think about it.
+    (review_queue.sync(), step 11 below) so a caller can tell "new this run"
+    apart from backlog. NOT bucketed to any calendar period (Derek,
+    2026-09-12: the code shouldn't assume monthly cadence just because
+    that's what Render happens to be scheduled for today) -- defaults to
+    whatever the current latest snapshot run_id is (refining it, same as a
+    review-queue Sync would), or a fresh one (report.new_run_id()) if no
+    snapshot exists yet. A bare `rebuild.run()` call (the `pipeline` CLI
+    command, ad hoc local runs) still tags something sane without the
+    caller having to think about it; `cli.py`'s `run-all` always passes an
+    explicit fresh run_id instead, since a full scheduled execution is its
+    own new sample point, not a refinement of the last one.
     """
     stats = RebuildStats()
-    run_id = run_id or f"run_{date.today():%Y%m}"
+    run_id = run_id or report.latest_run_id() or report.new_run_id()
     proxies = config.proxy_config() if use_proxy else None
     if use_proxy and not proxies:
         log.warning("use_proxy=True but EVOMI_* not configured in .env -- "

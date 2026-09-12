@@ -65,15 +65,18 @@ st.sidebar.metric("Pending", len(pending))
 
 st.sidebar.divider()
 st.sidebar.caption(
-    "Sync re-applies the FULL current crosswalk table and refreshes this "
-    "month's snapshot -- cheap and idempotent, not scoped to a time window, "
-    "so nothing gets missed if you go a while between syncs."
+    "Sync re-applies the FULL current crosswalk table and refreshes the most "
+    "recent snapshot checkpoint in place -- cheap and idempotent, not scoped "
+    "to a time window, so nothing gets missed if you go a while between "
+    "syncs. It never creates a new checkpoint -- only a full pipeline run "
+    "does that."
 )
 if st.sidebar.button("Sync resolved decisions to snapshot", type="primary"):
     with st.sidebar:
         with st.spinner("Applying crosswalk + writing snapshot..."):
             cw_stats = join.apply_crosswalk()
-            snap = report.write_snapshot()
+            run_id = report.latest_run_id() or report.new_run_id()
+            snap = report.write_snapshot(run_id)
     st.sidebar.success(f"Snapshot {snap['run_id']}: {snap['rows']:,} rows")
 
 recent = db.query("""

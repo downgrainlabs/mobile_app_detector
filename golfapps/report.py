@@ -1,8 +1,10 @@
-"""Reporting: app penetration, vendor market share, blind-spot metrics, monthly diff."""
+"""Reporting: app penetration, vendor market share, blind-spot metrics,
+change-over-time diff between any two run_ids -- however often the pipeline
+actually runs, not assumed to be monthly."""
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from . import config, db, vendors
 
@@ -114,7 +116,27 @@ def full_report() -> dict:
 
 
 # ---------------------------------------------------------------- snapshots
-def write_snapshot(run_id: str | None = None) -> dict:
+def new_run_id() -> str:
+    """A fresh, globally-unique id for one full pipeline execution -- not
+    bucketed to any calendar period (Derek, 2026-09-12: the code shouldn't
+    assume monthly just because that's the cadence Render happens to be set
+    to today; every actual run of the full pipeline is its own sample point,
+    whatever the schedule). Timestamped to the second, which is unique enough
+    for anything short of two executions starting the same second."""
+    return f"run_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}"
+
+
+def latest_run_id() -> str | None:
+    """The most recently created snapshot -- what a between-runs refinement
+    (a review-queue Sync, an ad hoc `golfapps snapshot`) should update in
+    place, rather than manufacturing its own new checkpoint. None if no
+    snapshot has ever been written."""
+    rows = db.query("SELECT run_id FROM ga_snapshot ORDER BY run_date DESC, "
+                    "run_id DESC LIMIT 1")
+    return rows[0]["run_id"] if rows else None
+
+
+def write_snapshot(run_id: str) -> dict:
     """Freeze the CURRENT ga_facility_app state into this run's row set --
     only apps confirmed alive. Filtered on ga_app.delisted_at IS NULL (Derek,
     2026-09-12): the snapshot is "who we think currently has an ACTIVE app",
@@ -125,14 +147,20 @@ def write_snapshot(run_id: str | None = None) -> dict:
     filter belongs here, at the point the census gets taken.
 
     Also deletes any row ALREADY in this run_id for an app now confirmed
-    delisted (found immediately after adding the filter above: a prior
-    write_snapshot() call earlier the same month had recorded 23 apps as
+    delisted (found immediately after adding the filter above: an earlier
+    write_snapshot() call against the same run_id had recorded 23 apps as
     alive before they were known dead, and the filtered INSERT alone never
     retroactively removes a stale row -- it only stops adding new ones).
-    Scoped strictly to this run_id; past months' rows are historical record
-    and are never touched, even for an app that's since died.
+    Scoped strictly to THIS run_id; every other run_id is historical record
+    and is never touched, even for an app that's since died.
+
+    run_id is required, deliberately -- no silent default. Callers must be
+    explicit about intent: a fresh run_id (new_run_id()) for "this is a new
+    pipeline execution," or the existing latest one (latest_run_id()) for
+    "refine what's already there." Guessing between those from inside this
+    function is exactly the bug that made every run this month collapse into
+    one row no matter how many times the job actually executed.
     """
-    run_id = run_id or f"run_{date.today():%Y%m}"
     db.exec_sql(f"""
         DELETE FROM ga_snapshot s
         USING ga_app a
@@ -156,10 +184,10 @@ def write_snapshot(run_id: str | None = None) -> dict:
 
 
 def new_review_items(run_id: str) -> list[dict]:
-    """Outcome #5 of the monthly report -- vendor-confirmed apps flagged for
-    human review for the FIRST time this run. These never appear in
-    ga_snapshot at all (no facility link yet), so diff() alone can't see
-    them -- this is the only place they show up."""
+    """Outcome #5 of the recurring report -- vendor-confirmed apps flagged
+    for human review for the FIRST time under this run_id. These never
+    appear in ga_snapshot at all (no facility link yet), so diff() alone
+    can't see them -- this is the only place they show up."""
     return db.query(f"""
         SELECT track_id, app_name, vendor, app_store_url
         FROM ga_review_queue
@@ -169,7 +197,7 @@ def new_review_items(run_id: str) -> list[dict]:
 
 
 def diff(since_run: str, until_run: str | None = None) -> dict:
-    """Month-over-month change -- the five outcomes Derek tracks:
+    """Change between two checkpoints -- the five outcomes Derek tracks:
       1. unchanged        -- same facility_id + vendor in both runs (count only,
                               nothing actionable to list).
       2. vendor_lost       -- still linked to the same facility, vendor no

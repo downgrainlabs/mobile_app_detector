@@ -115,13 +115,37 @@ def full_report() -> dict:
 
 # ---------------------------------------------------------------- snapshots
 def write_snapshot(run_id: str | None = None) -> dict:
+    """Freeze the CURRENT ga_facility_app state into this run's row set --
+    only apps confirmed alive. Filtered on ga_app.delisted_at IS NULL (Derek,
+    2026-09-12): the snapshot is "who we think currently has an ACTIVE app",
+    not just "who has a link on file" -- a dead app shouldn't sit in this
+    census just because its crosswalk link is still on the books.
+    ga_facility_app itself is deliberately left untouched by this filter --
+    it's the durable facility<->app pairing, not a liveness census; the
+    filter belongs here, at the point the census gets taken.
+
+    Also deletes any row ALREADY in this run_id for an app now confirmed
+    delisted (found immediately after adding the filter above: a prior
+    write_snapshot() call earlier the same month had recorded 23 apps as
+    alive before they were known dead, and the filtered INSERT alone never
+    retroactively removes a stale row -- it only stops adding new ones).
+    Scoped strictly to this run_id; past months' rows are historical record
+    and are never touched, even for an app that's since died.
+    """
     run_id = run_id or f"run_{date.today():%Y%m}"
+    db.exec_sql(f"""
+        DELETE FROM ga_snapshot s
+        USING ga_app a
+        WHERE s.track_id = a.track_id AND a.delisted_at IS NOT NULL
+          AND s.run_id = {db.lit(run_id)}
+    """)
     db.exec_sql(f"""
         INSERT INTO ga_snapshot (run_id, run_date, facility_id, track_id, vendor,
                                   confidence, match_method)
         SELECT {db.lit(run_id)}, current_date, fa.facility_id, fa.track_id,
                v.vendor, v.confidence, fa.match_method
         FROM ga_facility_app fa
+        JOIN ga_app a ON a.track_id = fa.track_id AND a.delisted_at IS NULL
         LEFT JOIN ga_app_vendor v ON v.track_id = fa.track_id
         ON CONFLICT (run_id, facility_id, track_id) DO UPDATE
           SET vendor = excluded.vendor, confidence = excluded.confidence,
